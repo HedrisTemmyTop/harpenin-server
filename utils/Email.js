@@ -2,6 +2,7 @@ const nodemailer = require("nodemailer");
 const catchAsync = require("./catchAsync");
 
 const verify = require("../templates/verify");
+const reset = require("./../templates/reset");
 
 // const sendEmail = catchAsync(async (options) => {
 //   // Create a transporter
@@ -73,17 +74,14 @@ module.exports = class Email {
     // create a transport and send email
     await this.newTransport().sendMail(mailOptions);
   }
-  async sendWelcome() {
-    await this.send("welcome", "Welcome to Natours Family");
+
+  async sendReset(otp) {
+    const html = reset(this.firstname, otp);
+    await this.send(html, "Reset Your Password");
   }
+
   async sendVerify(otp) {
     const html = verify(this.firstname, otp);
     await this.send(html, "Verify Your Email");
-  }
-  async sendPasswordReset() {
-    await this.send(
-      "passwordReset",
-      `Your password reset token valid for 5 mins`
-    );
   }
 };

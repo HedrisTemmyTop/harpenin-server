@@ -4,6 +4,9 @@ const {
   verifyEmail,
   resendVerificationOtp,
   login,
+  forgotPassword,
+  verifyResetOtp,
+  resetPassword,
 } = require("../controllers/authController");
 
 const router = express.Router();
@@ -14,6 +17,7 @@ router.post("/login", login);
 
 router.post("/verify-email", verifyEmail);
 
-router.get("/verification-otp", resendVerificationOtp);
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password", resetPassword);
 
 module.exports = router;

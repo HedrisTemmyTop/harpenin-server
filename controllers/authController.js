@@ -94,6 +94,9 @@ exports.verifyEmail = catchAsync(async (req, res, next) => {
     { email },
     {
       isVerified: true,
+      verificationOtp: undefined,
+      verificationOtpExpiresAt: undefined,
+      verifiedAt: Date.now(),
     }
   );
   res.status(200).json({
@@ -154,7 +157,7 @@ exports.login = catchAsync(async function (req, res, next) {
   console.log(user);
 
   if (!user || !(await user.correctPassword(password, user.password))) {
-    return next(new AppError("Incorrect e-mail and password"));
+    return next(new AppError("Incorrect e-mail and password", 401));
   }
 
   const refreshToken = generateJWT(user._id, "30d");
@@ -166,5 +169,69 @@ exports.login = catchAsync(async function (req, res, next) {
       refreshToken,
       authToken,
     },
+  });
+});
+
+exports.forgotPassword = catchAsync(async function (req, res, next) {
+  const { email } = req.body;
+
+  if (!email) {
+    return next(new AppError("e-mail  is required", 400));
+  }
+
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    return next(
+      new AppError(
+        "This user does not exist, proceed to create an account",
+        400
+      )
+    );
+  }
+
+  await new Email(user).sendReset(user.createResetOtp());
+
+  await user.save();
+
+  res.status(200).json({
+    status: "success",
+    message: "OTP has been sent to your e-mail",
+  });
+});
+
+exports.resetPassword = catchAsync(async function (req, res, next) {
+  const { email, confirmPassword, password, otp } = req.body;
+
+  if (confirmPassword !== password) {
+    return next(
+      new AppError("password and confirm password  have to be the same", 400)
+    );
+  }
+
+  if (!email || !password || !otp) {
+    return next(new AppError("e-mail, password and OTP are required", 400));
+  }
+
+  const hashedOTP = crypto.createHash("sha256").update(otp).digest("hex");
+
+  const user = await User.findOne({
+    email,
+    resetPasswordOtp: hashedOTP,
+    resetPasswordOtpExpiresAt: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    return next(new AppError("OTP  is invalid or has expired  ", 400));
+  }
+
+  user.password = password;
+  user.resetPasswordOtp = undefined;
+  user.resetPasswordOtpExpiresAt = undefined;
+  await user.save();
+
+  res.status(200).json({
+    status: "success",
+    message: "your password has been updated successfully",
   });
 });
