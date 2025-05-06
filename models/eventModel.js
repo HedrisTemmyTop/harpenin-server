@@ -12,6 +12,12 @@ const eventSchema = new mongoose.Schema(
       required: [true, "Event description is a required input field"],
     },
 
+    user: {
+      type: mongoose.Schema.ObjectId,
+      ref: "User",
+      required: [true, "The event must belong to a user"],
+    },
+
     information: String,
     photos: {
       type: [String],

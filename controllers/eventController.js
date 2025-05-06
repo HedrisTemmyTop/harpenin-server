@@ -22,8 +22,10 @@ exports.createEvent = catchAsync(async function (req, res, next) {
     paymentType: req.body.paymentType,
     registrationLink: req.body.registrationLink,
     dates: req.body.dates,
+    user: req.user._id,
   });
 
+  delete newEvent.user;
   res.status(201).json({
     status: "success",
     message: "event has been created successfully",
@@ -32,7 +34,6 @@ exports.createEvent = catchAsync(async function (req, res, next) {
 });
 
 exports.getSingleEvent = catchAsync(async function (req, res, next) {
-  console.log(req.params);
   if (!req.params.id) {
     return next(
       new AppError("Event id is required to get an event details", 400)
@@ -48,5 +49,41 @@ exports.getSingleEvent = catchAsync(async function (req, res, next) {
     status: "success",
     message: "event details has been gotten successfully",
     data: event,
+  });
+});
+
+exports.getAllEvents = catchAsync(async function (req, res, next) {
+  let query = {};
+
+  if (req.query?.type === "new") {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    query.createdAt = { $gte: thirtyDaysAgo };
+  }
+  if (req.query?.location) {
+    query.location = { $regex: req.query.location, $options: "i" };
+  }
+
+  console.log(query, "location");
+
+  const events = await Event.find(query).sort({ createdAt: -1 });
+  res.status(200).json({
+    status: "success",
+    message: "events has been gotten successfully",
+    data: events,
+    location: req.query?.location || "Everywhere",
+  });
+});
+
+exports.getMyEvent = catchAsync(async function (req, res, next) {
+  const events = await Event.find({
+    user: req.user._id,
+  }).sort({ createdAt: -1 });
+
+  res.status(200).json({
+    status: "success",
+    message: "your events has been gotten successfully",
+    data: events,
   });
 });

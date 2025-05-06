@@ -11,7 +11,12 @@ router
     authController.protect,
     upload.array("photos", 4),
     eventController.createEvent
-  );
+  )
+  .get(eventController.getAllEvents);
+
+router
+  .route("/my-events")
+  .get(authController.protect, eventController.getMyEvent);
 
 router.route("/:id").get(eventController.getSingleEvent);
 

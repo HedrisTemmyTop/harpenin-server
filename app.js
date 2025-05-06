@@ -3,6 +3,7 @@ const express = require("express");
 const dotenv = require("dotenv");
 const authRoutes = require("./routes/authRoutes");
 const eventRoutes = require("./routes/eventRoutes");
+const reportRoutes = require("./routes/reportRoutes");
 const globalErrorHandler = require("./controllers/errorController");
 
 // Load environment variables
@@ -20,8 +21,8 @@ app.use(express.json());
 // Routes
 app.use(`${URL}auth`, authRoutes);
 app.use(`${URL}events`, eventRoutes);
+app.use(`${URL}reports`, reportRoutes);
 app.use(globalErrorHandler);
-
 // Root Endpoint
 app.get("/", (req, res) => {
   res.send("Welcome to your Express app!");
