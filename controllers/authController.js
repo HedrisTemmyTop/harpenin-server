@@ -7,10 +7,11 @@ const generateOTP = require("../utils/otp");
 const jwt = require("jsonwebtoken");
 // const Email = require("../utils/Email");
 
-const generateJWT = function (id, expiresIn) {
+const generateJWT = function (id, type, expiresIn) {
   return jwt.sign(
     {
       id,
+      type,
     },
     process.env.JWT_SECRET,
     {
@@ -106,7 +107,6 @@ exports.verifyEmail = catchAsync(async (req, res, next) => {
 });
 
 exports.resendVerificationOtp = catchAsync(async function (req, res, next) {
-  console.log(req.params, "req params");
   const { email } = req.query;
 
   if (!email) {
@@ -149,19 +149,17 @@ exports.resendVerificationOtp = catchAsync(async function (req, res, next) {
 
 exports.login = catchAsync(async function (req, res, next) {
   const { email, password } = req.body;
-
   if (!email || !password) {
     return next(new AppError("Email and password is required", 400));
   }
   const user = await User.findOne({ email }).select("+password");
-  console.log(user);
 
   if (!user || !(await user.correctPassword(password, user.password))) {
     return next(new AppError("Incorrect e-mail and password", 401));
   }
 
-  const refreshToken = generateJWT(user._id, "30d");
-  const authToken = generateJWT(user._id, "2h");
+  const refreshToken = generateJWT(user._id, "refreshToken", "30d");
+  const authToken = generateJWT(user._id, "authToken", "2h");
   res.status(200).json({
     status: "success",
     message: "login successful, proceed to hapenin  😊",
@@ -234,4 +232,88 @@ exports.resetPassword = catchAsync(async function (req, res, next) {
     status: "success",
     message: "your password has been updated successfully",
   });
+});
+
+exports.refreshToken = catchAsync(async (req, res, next) => {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    return next(new AppError("The refresh token is required", 401));
+  }
+
+  let decodedRefreshToken;
+  try {
+    decodedRefreshToken = jwt.verify(refreshToken, process.env.JWT_SECRET);
+  } catch (err) {
+    return next(new AppError("Invalid or expired refresh token", 401));
+  }
+
+  if (decodedRefreshToken.type !== "refreshToken") {
+    return next(new AppError("Invalid token type", 401));
+  }
+
+  const authToken = req.headers.authorization?.split(" ")[1];
+  if (authToken) {
+    try {
+      const decodedAuthToken = jwt.verify(authToken, process.env.JWT_SECRET);
+
+      if (
+        decodedAuthToken.type !== "authToken" ||
+        decodedAuthToken.id !== decodedRefreshToken.id
+      ) {
+        return next(
+          new AppError("Invalid tokens: They belong to different users", 401)
+        );
+      }
+    } catch (err) {
+      if (err.name !== "TokenExpiredError") {
+        return next(new AppError("Invalid auth token", 401));
+      }
+    }
+  }
+
+  const user = await User.findById(decodedRefreshToken.id);
+  if (!user) {
+    return next(new AppError("Invalid token, this user does not exist", 401));
+  }
+
+  const newAuthToken = generateJWT(user._id, "authToken", "2h");
+  const newRefreshToken = generateJWT(user._id, "refreshToken", "30d");
+
+  res.status(200).json({
+    status: "success",
+    message: "New auth token has been issued successfully",
+    data: {
+      authToken: newAuthToken,
+      refreshToken: newRefreshToken,
+    },
+  });
+});
+
+exports.protect = catchAsync(async (req, res, next) => {
+  const authToken = req.headers.authorization?.split(" ")[1];
+
+  if (!authToken) {
+    return next(new AppError("The auth token is required", 401));
+  }
+  const decoded = jwt.verify(authToken, process.env.JWT_SECRET);
+
+  if (decoded.type !== "authToken") {
+    return next(new AppError("Invalid token, pls login again", 401));
+  }
+
+  const convertedTimestamp = new Date(decoded.exp * 1000);
+  const now = new Date();
+  if (convertedTimestamp < now) {
+    return next(new AppError("Token has expired, pls login again", 401));
+  }
+
+  const user = await User.findById(decoded.id);
+
+  if (!user) {
+    return next(new AppError("Invalid token this user does not exist", 401));
+  }
+
+  req.user = user;
+  next();
 });

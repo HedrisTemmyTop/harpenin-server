@@ -1,8 +1,8 @@
 // app.js
 const express = require("express");
 const dotenv = require("dotenv");
-const userRoutes = require("./routes/userRoutes");
-
+const authRoutes = require("./routes/authRoutes");
+const eventRoutes = require("./routes/eventRoutes");
 const globalErrorHandler = require("./controllers/errorController");
 
 // Load environment variables
@@ -18,8 +18,8 @@ app.use(express.json());
 // app.use("/api/v1", apiRoutes);
 
 // Routes
-app.use(`${URL}users`, userRoutes);
-
+app.use(`${URL}auth`, authRoutes);
+app.use(`${URL}events`, eventRoutes);
 app.use(globalErrorHandler);
 
 // Root Endpoint
